@@ -30,14 +30,35 @@ class Resource(T) {
         foreach(ref sem; sems){
             sem = new Semaphore(0);
         }
+        numWaiting[1] = 0;
+        numWaiting[0] = 0;
     }
     
     T allocate(int priority){
+        mtx.wait();
+        if (busy) {
+            numWaiting[priority] += 1;
+            mtx.notify();
+            sems[priority].wait();
+        }
+        busy = true;
+        mtx.notify();
         return value;
     }
     
     void deallocate(T v){
+        mtx.wait();
+        busy = false;
         value = v;
+        if (numWaiting[1] > 0) {
+            sems[1].notify();
+            numWaiting[1] -= 1;
+        } else if (numWaiting[0] > 0) {
+            sems[0].notify();
+            numWaiting[0] -= 1;
+        } else {
+            mtx.notify();
+        }
     }
 }
 
